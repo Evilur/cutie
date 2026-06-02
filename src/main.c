@@ -1,4 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -9,20 +8,9 @@
 #include <sys/ioctl.h>
 
 #include "type/bool.h"
-#include "esc/font.h"
-
-/* All available scene types */
-enum Scene {
-    CHECKLIST
-};
-
-/* Init the tty descriptor, the terminal size
- * and the current cursor position */
-int32_t tty;
-uint16_t x, y;
-uint16_t width, height;
+#include "esc/text.h"
 
 int32_t main(const int argc, const char* const* argv) {
-    printf(ESC BLUE M "PENIS");
+    printf(T(BOLD, ITALIC, RED)"TEST");
     return 0;
 }

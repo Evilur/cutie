@@ -1,2 +1,4 @@
+.cache
 build
 nvim.Makefile
+compile_commands.json
