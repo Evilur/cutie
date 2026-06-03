@@ -63,7 +63,7 @@ static inline void ttyfree(void) {
     if (_tty != NULL) fclose(_tty);
 }
 
-/** Print the data to the raw tty device
+/** Print the data to the raw tty device using printf
  * @param format The format string for the printf
  */
 static inline void ttyprintf(const char* const format, ...) {
@@ -71,6 +71,20 @@ static inline void ttyprintf(const char* const format, ...) {
     va_start(args, format);
     vfprintf(_tty, format, args);
     va_end(args);
+}
+
+/** Print the data to the raw tty device
+ * @param string The seting to print
+ */
+static inline void ttyputs(const char* const string) {
+    fputs(string, _tty);
+}
+
+/** Read one char from the tty
+ * @return The char from the /dev/tty
+ */
+static inline char ttygetchar() {
+    return fgetc(_tty);
 }
 
 /** Flush the tty buffer
