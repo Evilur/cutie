@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "util/tui.h"
+
 /** Create the checklist scene and handle it
  * @param title The title of the checklist
  * @returns 0 on success; -1 on error

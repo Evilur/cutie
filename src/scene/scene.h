@@ -6,7 +6,8 @@
 
 /* All available scene types */
 enum Scene {
-    CHECKLIST
+    CHECKLIST,
+    UNDEFINED
 };
 
 /** Create the TUI scene and handle user's input
@@ -17,13 +18,17 @@ enum Scene {
 static inline int32_t scene_init(const enum Scene type,
                                const char* const title) {
     /* Create the tui */
-    tuiinit();
+    if (tuiinit() == -1) return -1;
 
     /* Create an handle the specific scene */
     int32_t result = -1;
     switch (type) {
         case CHECKLIST:
             result = checklist_init(title);
+            break;
+
+        default:
+            seterr("Invalid type passed");
             break;
     }
 
