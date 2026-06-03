@@ -20,7 +20,7 @@ int32_t main(const int32_t argc, const char* const* argv) {
 
     /* Draw and handle the scene according to the scene type */
     if (strcmp(argv[1], "checklist") == 0)
-        return handle_scene(CHECKLIST, title);
+        return scene_init(CHECKLIST, title);
 
     /* If the program can't handle the argument */
     fatalf("Invalid first argument\n"

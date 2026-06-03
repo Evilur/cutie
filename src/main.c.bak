@@ -54,10 +54,10 @@ static void gondown(uint16_t n);
  */
 static int32_t draw(enum Scene scene, const char* title);
 
-/** Exit the cannon terminal mode
- * @param fd The file descriptor to enable the non-cannon mode
+/** Exit the canon terminal mode
+ * @param fd The file descriptor to enable the non-canon mode
  */
-static void exit_cannon(int32_t fd);
+static void exit_canon(int32_t fd);
 
 int32_t main(const int32_t argc, const char* const* argv) {
     /* Check for the main argument */
@@ -111,7 +111,7 @@ static int32_t draw(const enum Scene scene, const char* const title) {
     if (tty == -1) {
         fprintf(stderr, RED"Error: failed to open the tty descriptor\n");
         return -1;
-    } else exit_cannon(tty);
+    } else exit_canon(tty);
 
     /* Hide the cursor */
     dprintf(tty, HIDE);
@@ -444,12 +444,12 @@ static int32_t draw(const enum Scene scene, const char* const title) {
     return -1;
 }
 
-static void exit_cannon(const int32_t fd) {
+static void exit_canon(const int32_t fd) {
     /* Save the current terminal settings */
     struct termios term;
     tcgetattr(fd, &term);
 
-    /* Disable the cannon mode and echo */
+    /* Disable the canon mode and echo */
     term.c_lflag &= ~(ICANON | ECHO);
 
     /* Read char by char without any timeout */
