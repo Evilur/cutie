@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <stdarg.h>
@@ -11,39 +12,55 @@
 
 #include "esc/text.h"
 
-FILE* tty = NULL;
-struct termios old_term;
+FILE* _tty = NULL;
+struct termios _old_term;
+char* _ebuf = NULL;
 
-/** Print the fatal message
+/** Save the error to the error buffer to print it later
  * @param format The format string for the printf
  */
-static inline void fatalf(const char* const format, ...) {
-    /* Make the error message bold red and print the prefix */
-    fputs(T(BOLD, RED)"Error: ", stderr);
-
-    /* Print the message */
+static inline void seterr(const char* const format, ...) {
+    /* Get the message len */
     va_list args;
     va_start(args, format);
-    vfprintf(stderr, format, args);
+    const int32_t len = vsnprintf(NULL, 0, format, args);
     va_end(args);
 
-    /* End by the new line char */
-    fputc('\n', stderr);
+    /* Create a buffer for that error message */
+    if (_ebuf != NULL) free(_ebuf);
+    _ebuf = malloc(len + 1);
+
+    /* Print the error message to the buffer */
+    va_start(args, format);
+    vsnprintf(_ebuf, len + 1, format, args);
+    va_end(args);
+}
+
+/* Print the error from the buffer
+ */
+static inline void printerr(void) {
+    if (_ebuf == NULL) seterr("Unknown error");
+
+    /* Print the error message */
+    fprintf(stderr, T(BOLD, RED)"Error: %s\n", _ebuf);
 }
 
 /** Init the tty device
  * @returns 0 on success; 1 on error
  */
 static inline int32_t ttyinit(void) {
-    tty = fopen("/dev/tty", "r+");
-    if (tty == NULL) return -1;
+    _tty = fopen("/dev/tty", "r+");
+    if (_tty == NULL) {
+        seterr("Failed to open the /dev/tty device");
+        return -1;
+    }
     else return 0;
 }
 
 /** Free the tty device file desciptor
  */
 static inline void ttyfree(void) {
-    if (tty != NULL) fclose(tty);
+    if (_tty != NULL) fclose(_tty);
 }
 
 /** Print the data to the raw tty device
@@ -52,14 +69,14 @@ static inline void ttyfree(void) {
 static inline void ttyprintf(const char* const format, ...) {
     va_list args;
     va_start(args, format);
-    vfprintf(tty, format, args);
+    vfprintf(_tty, format, args);
     va_end(args);
 }
 
 /** Flush the tty buffer
  */
 static inline void ttyflush(void) {
-    fflush(tty);
+    fflush(_tty);
     fflush(stdout);
 }
 
@@ -70,12 +87,12 @@ static inline void ttyflush(void) {
  */
 static inline int32_t ttygetpos(int16_t* const x, int16_t* const y) {
     /* Send the ascii seq to get the pos */
-    fprintf(tty, "\033[6n");
+    fprintf(_tty, "\033[6n");
     ttyflush();
 
     /* Handle the ascii seq response */
-    if (fscanf(tty, "\033[%hd;%hdR", y, x) != 2) {
-        fatalf("Bad cursor position reply");
+    if (fscanf(_tty, "\033[%hd;%hdR", y, x) != 2) {
+        seterr("Bad cursor position reply");
         return -1;
     } else return 0;
 }
@@ -87,7 +104,10 @@ static inline int32_t ttygetpos(int16_t* const x, int16_t* const y) {
 static inline int32_t ttygetsize(int16_t* const width, int16_t* const height) {
     /* Get the terminal size */
     struct winsize ws;
-    if (ioctl(fileno(tty), TIOCGWINSZ, &ws) == -1) return -1;
+    if (ioctl(fileno(_tty), TIOCGWINSZ, &ws) == -1) {
+        seterr("Failed to get the tty size");
+        return -1;
+    }
 
     /* Set the terminal size */
     *width = ws.ws_col;
@@ -102,13 +122,13 @@ static inline int32_t ttygetsize(int16_t* const width, int16_t* const height) {
  */
 static inline int32_t ttycanonoff(void) {
     /* Save the current terminal settings */
-    if (tcgetattr(fileno(tty), &old_term) == -1) {
-        fatalf("Failed to get the terminal state");
+    if (tcgetattr(fileno(_tty), &_old_term) == -1) {
+        seterr("Failed to get the terminal state");
         return -1;
     }
 
     /* Disable the canon mode and echo */
-    struct termios new_term = old_term;
+    struct termios new_term = _old_term;
     new_term.c_lflag &= ~(ICANON | ECHO);
 
     /* Read char by char without any timeout */
@@ -116,12 +136,12 @@ static inline int32_t ttycanonoff(void) {
     new_term.c_cc[VTIME] = 0;
 
     /* Enable the full buffering */
-    setvbuf(tty, NULL, _IOFBF, BUFSIZ);
+    setvbuf(_tty, NULL, _IOFBF, BUFSIZ);
     setvbuf(stdout, NULL, _IOFBF, BUFSIZ);
 
     /* Apply the new terminal settings */
-    if (tcsetattr(fileno(tty), TCSANOW, &new_term)) {
-        fatalf("Failed to set the terminal state");
+    if (tcsetattr(fileno(_tty), TCSANOW, &new_term)) {
+        seterr("Failed to set the terminal state");
         return -1;
     }
 
@@ -132,7 +152,7 @@ static inline int32_t ttycanonoff(void) {
 /** Restore the terminal setting
  */
 static inline void ttyreset(void) {
-    tcsetattr(fileno(tty), TCSANOW, &old_term);
+    tcsetattr(fileno(_tty), TCSANOW, &_old_term);
 }
 
 #endif

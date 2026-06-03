@@ -22,9 +22,9 @@
 
 /* Init the tty descriptor, the terminal size
  * and the current cursor position */
-int32_t tty;
-uint16_t x, y;
-uint16_t width, height;
+int32_t _tty;
+uint16_t _x, _y;
+uint16_t _width, _height;
 
 /** Update the current cursor position
  * @returns 0 if all is OK; -1 on error
@@ -83,52 +83,52 @@ int32_t main(const int32_t argc, const char* const* argv) {
 }
 
 static int32_t curupdate(void) {
-    dprintf(tty, "\033[6n");
+    dprintf(_tty, "\033[6n");
     fflush(stdout);
     char result_buffer[16];
-    if (read(tty, result_buffer, sizeof(result_buffer) - 1) == -1) {
+    if (read(_tty, result_buffer, sizeof(result_buffer) - 1) == -1) {
         fprintf(stderr, RED"Error: failed to get the cursor position\n");
         return -1;
     }
-    if (sscanf(result_buffer, "\033[%hu;%hu", &y, &x) != 2) {
+    if (sscanf(result_buffer, "\033[%hu;%hu", &_y, &_x) != 2) {
         fprintf(stderr, RED"Error: bad cursor position reply\n");
         return -1;
     }
     return 0;
 }
 
-static void goup(void) { dprintf(tty, UP); --y; }
+static void goup(void) { dprintf(_tty, UP); --_y; }
 
-static void gonup(const uint16_t n) {  dprintf(tty, NDOWN, n); y += n; }
+static void gonup(const uint16_t n) {  dprintf(_tty, NDOWN, n); _y += n; }
 
-static void godown(void) { dprintf(tty, DOWN); ++y; }
+static void godown(void) { dprintf(_tty, DOWN); ++_y; }
 
-static void gondown(const uint16_t n) {  dprintf(tty, NDOWN, n); y += n; }
+static void gondown(const uint16_t n) {  dprintf(_tty, NDOWN, n); _y += n; }
 
 static int32_t draw(const enum Scene scene, const char* const title) {
     /* Open the tty descriptor */
-    tty = open("/dev/tty", O_RDWR);
-    if (tty == -1) {
+    _tty = open("/dev/tty", O_RDWR);
+    if (_tty == -1) {
         fprintf(stderr, RED"Error: failed to open the tty descriptor\n");
         return -1;
-    } else exit_canon(tty);
+    } else exit_canon(_tty);
 
     /* Hide the cursor */
-    dprintf(tty, HIDE);
+    dprintf(_tty, HIDE);
 
     {
         /* Get the terminal size */
         struct winsize ws;
-        if (ioctl(tty, TIOCGWINSZ, &ws) == -1) {
+        if (ioctl(_tty, TIOCGWINSZ, &ws) == -1) {
             fprintf(stderr, RED"Error: failed to get the window size\n");
             return -1;
-        } else { width = ws.ws_col; height = ws.ws_row; }
+        } else { _width = ws.ws_col; _height = ws.ws_row; }
     }
 
     if (scene == CHECKLIST) {
         /* Print the title */
-        if (title == NULL) dprintf(tty, PURPLE"Choose:\n");
-        else dprintf(tty, PURPLE"%s:\n", title);
+        if (title == NULL) dprintf(_tty, PURPLE"Choose:\n");
+        else dprintf(_tty, PURPLE"%s:\n", title);
 
         /* Alloc the memory for option names */
         int32_t names_off= 0;
@@ -280,7 +280,7 @@ static int32_t draw(const enum Scene scene, const char* const title) {
 
         /* Print the options */
         uint16_t current_index = 0;
-        const uint16_t free_height = height - 6;
+        const uint16_t free_height = _height - 6;
         const bool scrollable = free_height < opts_num;
         const uint16_t cur_opts_num = scrollable ? free_height : opts_num;
         if (cur_opts_num > 0) { REDRAW_CLINE("\n"); ++current_index; }
@@ -301,22 +301,22 @@ static int32_t draw(const enum Scene scene, const char* const title) {
 
         /* Get the end position */
         if (curupdate() == -1) return -1;
-        const uint16_t checklist_end = y;
+        const uint16_t checklist_end = _y;
 
         /* If the checkbox is scrollable */
-        const uint16_t top_end = y - cur_opts_num - 1;
-        const uint16_t bottom_end = y - 3;
-        if (scrollable) dprintf(tty, SCROLL_VIEW, top_end - 1, bottom_end);
+        const uint16_t top_end = _y - cur_opts_num - 1;
+        const uint16_t bottom_end = _y - 3;
+        if (scrollable) dprintf(_tty, SCROLL_VIEW, top_end - 1, bottom_end);
 
         /* Move the cursor to the first option and reset the current index */
-        current_index = 0; dprintf(tty, GOTO_LINE, top_end - 1);
+        current_index = 0; dprintf(_tty, GOTO_LINE, top_end - 1);
         if (curupdate() == -1) return -1;
 
         /* Read the input */
         uint8_t input;
         for (;;) {
             /* Get the input */
-            if (read(tty, &input, 1) == -1) {
+            if (read(_tty, &input, 1) == -1) {
                 fprintf(stderr, RED"Error: failed to read the /dev/tty\n");
                 return -1;
             }
@@ -325,8 +325,8 @@ static int32_t draw(const enum Scene scene, const char* const title) {
             if (input == 27 || input == 'q') {
                 /* Clear the scene */
                 dprintf(tty, SCROLL_VIEW_RESET RESET);
-                gonup(y + 3 - top_end);
-                dprintf(tty, CLEAR);
+                gonup(_y + 3 - top_end);
+                dprintf(_tty, CLEAR);
                 return -1;
             }
 
@@ -342,7 +342,7 @@ static int32_t draw(const enum Scene scene, const char* const title) {
                 REDRAW_LINE();
 
                 /* Align the cursor */
-                if (y < top_end) dprintf(tty, SCROLL_DOWN);
+                if (_y < top_end) dprintf(_tty, SCROLL_DOWN);
                 else goup();
 
                 /* Decrease the current index */
@@ -355,7 +355,7 @@ static int32_t draw(const enum Scene scene, const char* const title) {
                 REDRAW_LINE();
 
                 /* Align the cursor */
-                if (y >= bottom_end) dprintf(tty, SCROLL_UP);
+                if (_y >= bottom_end) dprintf(_tty, SCROLL_UP);
                 else godown();
 
                 /* Increase the current index */
@@ -367,7 +367,7 @@ static int32_t draw(const enum Scene scene, const char* const title) {
                     --current_index;
 
                     /* Align the cursor */
-                    if (y < top_end) dprintf(tty, SCROLL_DOWN);
+                    if (_y < top_end) dprintf(_tty, SCROLL_DOWN);
                     else goup();
                 }
             } else if (input == 'l') {
@@ -378,7 +378,7 @@ static int32_t draw(const enum Scene scene, const char* const title) {
                     ++current_index;
 
                     /* Align the cursor */
-                    if (y >= bottom_end) dprintf(tty, SCROLL_UP);
+                    if (_y >= bottom_end) dprintf(_tty, SCROLL_UP);
                     else godown();
                 }
             }
@@ -392,7 +392,7 @@ static int32_t draw(const enum Scene scene, const char* const title) {
                 const uint16_t old_index = current_index;
 
                 /* Save the old y pos */
-                const uint16_t old_y = y;
+                const uint16_t old_y = _y;
 
                 /* Get the state which we will use
                  * (default - true; if all are flagged - false) */
@@ -405,7 +405,7 @@ static int32_t draw(const enum Scene scene, const char* const title) {
                 while (++current_index < opts_num);
 
                 /* Redraw the screen */
-                dprintf(tty, GOTO_LINE, top_end - 1);
+                dprintf(_tty, GOTO_LINE, top_end - 1);
                 if (curupdate() == -1) return -1;
                 current_index = old_index - (old_y - (top_end - 1));
                 const uint16_t max_index = current_index + cur_opts_num - 1;
@@ -428,8 +428,8 @@ static int32_t draw(const enum Scene scene, const char* const title) {
 
         /* Clear the scene */
         dprintf(tty, SCROLL_VIEW_RESET RESET);
-        gonup(y + 3 - top_end);
-        dprintf(tty, CLEAR);
+        gonup(_y + 3 - top_end);
+        dprintf(_tty, CLEAR);
 
         /* Print all the flagged elements */
         for (uint16_t i = 0; i < opts_num; ++i)

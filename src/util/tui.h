@@ -4,8 +4,8 @@
 #include "util/io.h"
 
 /* The current tty status */
-int16_t x = 1, y = 1;
-int16_t width = 0, height = 0;
+int16_t _x = 1, _y = 1;
+int16_t _width = 0, _height = 0;
 
 /** Init the tui interface
  * @returns 0 on success; -1 on error
@@ -18,10 +18,10 @@ static inline int32_t tuiinit(void) {
     if (ttycanonoff() == -1) return -1;
 
     /* Get the terminal size */
-    if (ttygetsize(&width, &height) == -1) return -1;
+    if (ttygetsize(&_width, &_height) == -1) return -1;
 
     /* Update the cursor position */
-    if (ttygetpos(&x, &y) == -1) return -1;;
+    if (ttygetpos(&_x, &_y) == -1) return -1;;
 
     /* Return the success code */
     return 0;
@@ -29,60 +29,117 @@ static inline int32_t tuiinit(void) {
 
 /** Increment the y position
  */
-static inline void tuiincy(void) {
-    if (y < height) ++y;
+static inline void _tuiincy(void) {
+    if (_y < _height) ++_y;
 }
 
 /** Decrement the y position
  */
-static inline void tuidecy(void) {
-    if (y > 1) --y;
+static inline void _tuidecy(void) {
+    if (_y > 1) --_y;
 }
 
 /** Change the y position
  * @param n The number to change the x
  */
-static inline void tuioffy(const int16_t n) {
-    y += n;
-    if (y < 1) y = 1;
-    else while (y > height) y -= height;
+static inline void _tuioffy(const int16_t n) {
+    _y += n;
+    if (_y < 1) _y = 1;
+    else while (_y > _height) _y -= _height;
 }
 
 /** Increment the x position
  */
-static inline void tuiincx(void) {
-    ++x;
-    if (x >= width) {
-        tuiincy();
-        x = 1;
+static inline void _tuiincx(void) {
+    ++_x;
+    if (_x > _width) {
+        _tuiincy();
+        _x = 1;
     }
 }
 
 /** Decrement the x position
  */
-static inline void tuidecx(void) {
-    --x;
-    if (x < 1) x = 1;
+static inline void _tuidecx(void) {
+    --_x;
+    if (_x < 1) _x = 1;
 }
 
 /** Change the x position
  * @param n The number to change the x
  */
-static inline void tuioffx(const int16_t n) {
-    x += n;
-    if (x < 1) x = 1;
-    else while (x >= width) { tuiincy(); x -= width; }
+static inline void _tuioffx(const int16_t n) {
+    _x += n;
+    if (_x < 1) _x = 1;
+    else while (_x > _width) { _tuiincy(); _x -= _width; }
+}
+
+/** Print the string and change the terminal states (x, y)
+ * @param string The string to print
+ */
+static inline void _tuiprint(char* const string) {
+    /* Replace the tabulation with space */
+    for (char* string_ptr = string; *string_ptr != '\0'; ++string_ptr)
+        if (*string_ptr == '\t') *string_ptr = ' ';
+
+    /* Print the string */
+    ttyprintf("%s", string);
+
+    /* Evaluate the new cursor position */
+    for (const char* string_ptr = string; *string_ptr != '\0'; ++string_ptr) {
+        switch (*string_ptr) {
+            /* New line char */
+            case '\n':
+                _tuiincy();
+                _x = 1;
+                break;
+
+            /* Return carriet char */
+            case '\r':
+                _x = 1;
+                break;
+
+            /* Backspace char */
+            case '\b':
+                _tuidecx();
+                break;
+
+            /* An ASCII sequence */
+            case '\033':
+                ++string_ptr;
+                switch(*string_ptr++) {
+                    /* CSI sequences */
+                    case '[':
+                        while (*string_ptr != '\0' &&
+                               !(*string_ptr >= '@' && *string_ptr <= '~'))
+                               ++string_ptr;
+                        break;
+
+                    /* OSC sequences */
+                    case ']':
+                        while (*string_ptr != '\0' &&
+                               !(*string_ptr >= '@' && *string_ptr <= '~'))
+                               ++string_ptr;
+                        break;
+                }
+                break;
+
+            /* A regular char */
+            default:
+                _tuiincx();
+                break;
+        }
+    }
 }
 
 /** Print the string using the printf
  * @param format The format string
- *               DO NOT push to the string '\t' chars or any
- *               ASCII sequences which rewrites cursor position
- *               Use special methods instead
+ *               DO NOT push to the string any ASCII sequences which
+ *               rewrites cursor position. Use special methods instead
  */
 static inline void tuiprintf(const char* const format, ...) {
     /* Buffer to try to store the first buffer */
-    static char buffer[128];
+    static char buffer[4];
 
     /* Try to get the size of the formatted string */
     va_list args;
@@ -90,55 +147,18 @@ static inline void tuiprintf(const char* const format, ...) {
     const int32_t ssize = vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-/* The macro to print and handle the string */
-#define TUI_PRINTF_PRINT(string) {                                             \
-    ttyprintf("%s", string);                                                   \
-    for (const char* string_ptr = string; *string_ptr != '\0'; ++string_ptr) { \
-        switch (*string_ptr) {                                                 \
-            /* New line char */                                                \
-            case '\n':                                                         \
-                tuiincy();                                                     \
-                x = 1;                                                         \
-                break;                                                         \
-                                                                               \
-            /* Return carriet char */                                          \
-            case '\r':                                                         \
-                x = 1;                                                         \
-                break;                                                         \
-                                                                               \
-            /* Backspace char */                                               \
-            case '\b':                                                         \
-                tuidecx();                                                     \
-                break;                                                         \
-                                                                               \
-            /* An ASCII sequence */                                            \
-            case '\033':                                                       \
-                ++string_ptr;                                                  \
-                while (*string_ptr != '\0' &&                                  \
-                       !(*string_ptr >= '@' && *string_ptr <= '~'))            \
-                       ++string_ptr;                                           \
-                break;                                                         \
-                                                                               \
-            /* A regular char */                                               \
-            default:                                                           \
-                tuiincx();                                                     \
-                break;                                                         \
-        }                                                                      \
-    }                                                                          \
-}
-
     /* If we doesn't obtain the full string */
     if (ssize >= sizeof(buffer)) {
         char nbuffer[ssize + 1];
         va_start(args, format);
         vsnprintf(nbuffer, sizeof(nbuffer), format, args);
         va_end(args);
-        TUI_PRINTF_PRINT(nbuffer);
+        _tuiprint(nbuffer);
     }
 
     /* If we already have the full string */
     else {
-        TUI_PRINTF_PRINT(buffer);
+        _tuiprint(buffer);
     }
 }
 

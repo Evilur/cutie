@@ -8,22 +8,26 @@
 int32_t main(const int32_t argc, const char* const* argv) {
     /* Check for the main argument */
     if (argc < 2) {
-        fatalf("Not all the arguments have been passed\n"
+        seterr("Not all the arguments have been passed\n"
                "See: %s --help", argv[0]);
+        printerr();
         return -1;
     }
 
-    /* Get the title argument (if exists) */
+    /* Get arguments (if exist) */
+    const char* const type_str = argv[1];
     const char* const title =
         argc == 3 ?
         argv[2] : NULL;
 
-    /* Draw and handle the scene according to the scene type */
-    if (strcmp(argv[1], "checklist") == 0)
-        return scene_init(CHECKLIST, title);
+    /* Get the scene type */
+    const enum Scene scene_type =
+        strcmp(type_str, "checklist") == 0 ? CHECKLIST : UNDEFINED;
 
-    /* If the program can't handle the argument */
-    fatalf("Invalid first argument\n"
-           "See: %s --help", argv[0]);
+    /* Draw and handle the scene according to the scene type */
+    if (scene_init(scene_type, title) == 0) return 0;
+
+    /* On error */
+    printerr();
     return -1;
 }

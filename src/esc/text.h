@@ -9,14 +9,14 @@
 #define T_GET_MACRO(_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, NAME, ...) NAME
 
 /* Basic macro */
-#define T0(a)                            ESC a"m"
-#define T1(a, b)                         ESC a";"b"m"
-#define T2(a, b, c)                      ESC a";"b";"c"m"
-#define T3(a, b, c, d)                   ESC a";"b";"c";"d"m"
-#define T4(a, b, c, d, e)                ESC a";"b";"c";"d";"e"m"
-#define T5(a, b, c, d, e, f)             ESC a";"b";"c";"d";"e";"f"m"
-#define T6(a, b, c, d, e, f, g)          ESC a";"b";"c";"d";"e";"f";"g"m"
-#define T7(a, b, c, d, e, f, g, h)       ESC a";"b";"c";"d";"e";"f";"g";"h"m"
+#define T0(a)                            CSI a"m"
+#define T1(a, b)                         CSI a";"b"m"
+#define T2(a, b, c)                      CSI a";"b";"c"m"
+#define T3(a, b, c, d)                   CSI a";"b";"c";"d"m"
+#define T4(a, b, c, d, e)                CSI a";"b";"c";"d";"e"m"
+#define T5(a, b, c, d, e, f)             CSI a";"b";"c";"d";"e";"f"m"
+#define T6(a, b, c, d, e, f, g)          CSI a";"b";"c";"d";"e";"f";"g"m"
+#define T7(a, b, c, d, e, f, g, h)       CSI a";"b";"c";"d";"e";"f";"g";"h"m"
 
 /* Font style attributes */
 #define RESET     "0"

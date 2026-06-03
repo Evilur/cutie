@@ -1,6 +1,6 @@
 #ifndef CUTIE_ESC_BASIC
 #define CUTIE_ESC_BASIC
 
-#define ESC "\033["
+#define CSI "\033["
 
 #endif
