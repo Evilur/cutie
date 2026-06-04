@@ -14,6 +14,9 @@ static inline int32_t tuiinit(void) {
     /* Open the tty descriptor */
     if (ttyinit() == -1) return -1;
 
+    /* Hide the cursor */
+    ttyputs(CSI"?25l");
+
     /* Exit the canonical mode */
     if (ttycanonoff() == -1) return -1;
 
@@ -156,8 +159,8 @@ static inline void _tuiprint(char* const string) {
  *               rewrites cursor position. Use special methods instead
  */
 static inline void tuiprintf(const char* const format, ...) {
-    /* Buffer to try to store the first buffer */
-    static char buffer[4];
+    /* Buffer to try to store the formated string */
+    static char buffer[128];
 
     /* Try to get the size of the formatted string */
     va_list args;
@@ -180,28 +183,20 @@ static inline void tuiprintf(const char* const format, ...) {
     }
 }
 
-/** Move the cursor up
- * @param n The number of lines to move the cursor
- */
-static inline void tuimvup(const uint16_t n) {
-    ttyprintf(CSI"%huA", n);
-    _tuioffy(n);
-}
-
 /** Move the cursor down
  * @param n The number of lines to move the cursor
  */
-static inline void tuimvdown(const uint16_t n) {
+static inline void tuigodown(const uint16_t n) {
     ttyprintf(CSI"%huB", n);
-    _tuioffy(-n);
+    _tuioffy(n);
 }
 
-/** Move the cursor right
- * @param n The number of columns to move the cursor
+/** Move the cursor up
+ * @param n The number of lines to move the cursor
  */
-static inline void tuimvright(const uint16_t n) {
-    ttyprintf(CSI"%huC", n);
-    _tuioffx(n);
+static inline void tuigoup(const uint16_t n) {
+    ttyprintf(CSI"%huA", n);
+    _tuioffy(-n);
 }
 
 /** Move the cursor left
@@ -209,6 +204,14 @@ static inline void tuimvright(const uint16_t n) {
  */
 static inline void tuimvleft(const uint16_t n) {
     ttyprintf(CSI"%huD", n);
+    _tuioffx(n);
+}
+
+/** Move the cursor right
+ * @param n The number of columns to move the cursor
+ */
+static inline void tuimvright(const uint16_t n) {
+    ttyprintf(CSI"%huC", n);
     _tuioffx(-n);
 }
 
@@ -217,8 +220,8 @@ static inline void tuimvleft(const uint16_t n) {
  */
 static inline void tuieddown(const uint16_t n) {
     ttyprintf(CSI"%huE", n);
-    _tuioffy(n);
     _tuisetx(1);
+    _tuioffy(n);
 }
 
 /** Move the cursor up and to the first column
@@ -226,8 +229,8 @@ static inline void tuieddown(const uint16_t n) {
  */
 static inline void tuiedup(const uint16_t n) {
     ttyprintf(CSI"%huF", n);
-    _tuioffy(-n);
     _tuisetx(1);
+    _tuioffy(-n);
 }
 
 /** Move the cursor to the absolute position
@@ -267,18 +270,6 @@ static inline void tuiscup(const uint16_t n) {
  */
 static inline void tuiscdown(const uint16_t n) {
     ttyprintf(CSI"%huT", n);
-}
-
-/** Hide the cursor
- */
-static inline void tuihidec(void) {
-    ttyputs(CSI"?25l");
-}
-
-/** Show the cursor
- */
-static inline void tuishowc(void) {
-    ttyputs(CSI"?25h");
 }
 
 /** Clear all lines below
@@ -326,6 +317,9 @@ static inline void tuiflush(void) {
 static inline void tuifree(void) {
     /* Restore the old terminal mode */
     ttyreset();
+
+    /* Enable the cursor */
+    ttyputs(CSI"?25h");
 
     /* Close the tty file desciptor */
     ttyfree();

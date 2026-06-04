@@ -42,7 +42,7 @@ static inline int32_t checklist_init(const char* const title) {
     char stat_buffer[8];
 
     /* Get choose options from the STDIN */
-    uint16_t opts_num = 0;
+    int16_t opts_num = 0;
     for (;;) {
 
         /* Read options */
@@ -74,7 +74,7 @@ static inline int32_t checklist_init(const char* const title) {
         *stat_buffer_end = '\0';
 
         /* Save the name to the dynamic array */
-        const uint16_t name_len = name_buffer_end - name_buffer;
+        const int16_t name_len = name_buffer_end - name_buffer;
         while (name_len + names_off > names_size) {
             names_size *= 2;
             names = realloc(names, names_size);
@@ -87,7 +87,7 @@ static inline int32_t checklist_init(const char* const title) {
         names_off += name_len + 1;
 
         /* Save the desc to the dynamic array */
-        const uint16_t desc_len = desc_buffer_end - desc_buffer;
+        const int16_t desc_len = desc_buffer_end - desc_buffer;
         while (desc_len + descs_off > descs_size) {
             descs_size *= 2;
             descs = realloc(descs, descs_size);
@@ -121,7 +121,7 @@ static inline int32_t checklist_init(const char* const title) {
     /* Create an array for storing all the option names */
     const char* names_org[opts_num];
     const char* names_ptr = names;
-    for (uint16_t i = 0; i < opts_num; ++i) {
+    for (int16_t i = 0; i < opts_num; ++i) {
         names_org[i] = names_ptr;
         names_ptr = strchr(names_ptr, '\0');
         if (names_ptr == NULL) {
@@ -133,7 +133,7 @@ static inline int32_t checklist_init(const char* const title) {
     /* Create an array for storing all the option descs */
     const char* descs_org[opts_num];
     const char* descs_ptr = descs;
-    for (uint16_t i = 0; i < opts_num; ++i) {
+    for (int16_t i = 0; i < opts_num; ++i) {
         descs_org[i] = descs_ptr;
         descs_ptr = strchr(descs_ptr, '\0');
         if (descs_ptr == NULL) {
@@ -146,31 +146,50 @@ static inline int32_t checklist_init(const char* const title) {
     if (opts_num == 0) return 0;
 
     /* Get the number of options for show on the screen */
-    const uint16_t free_height = tuiheight() - 4;
-    const uint16_t cur_opts_num = free_height < opts_num ?
-                                  free_height : opts_num;
+    const int16_t free_height = tuiheight() - 4;
+    const int16_t cur_opts_num = free_height < opts_num ?
+                                 free_height : opts_num;
 
     /* Print the title */
     if (title == NULL) tuiprintf(T(MAGENTA)"Choose:\n");
     else tuiprintf(T(MAGENTA)"%s:\n", title);
 
-#define REDRAW_LINE(S)                                                         \
-    tuiprintf("\r  %s %s - %s"S,                                               \
-              stats[current_index] ? T(RESET,BLUE)"✓" : T(RESET,WHITE)"•",     \
-              names_org[current_index], descs_org[current_index]);
-#define REDRAW_CLINE(S)                                                        \
-    tuiprintf(T(BOLD, ITALIC, BLUE)"\r> %s %s - %s"S,                          \
-              stats[current_index] ? "✓" : "•",                                \
-              names_org[current_index], descs_org[current_index]);
+#define REDRAW_LINE(I, S) {                                                    \
+    const char* const name = names_org[I];                                     \
+    const char* const desk = descs_org[I];                                     \
+    tuiprintf("\r  %s %s - %.*s"S,                                             \
+              stats[I] ? T(RESET,BLUE)"✓" : T(RESET,WHITE)"•",                 \
+              name, tuiwidth() - strlen(name) - 12, desk);                     \
+}
+#define REDRAW_CLINE(I, S) {                                                   \
+    const char* const name = names_org[I];                                     \
+    const char* const desk = descs_org[I];                                     \
+    tuiprintf(T(BOLD, ITALIC, BLUE)"\r> %s %s - %.*s"S,                        \
+              stats[I] ? "✓" : "•",                                            \
+              name, tuiwidth() - strlen(name) - 12, desk);                     \
+}
+#define REDRAW_SCREEN(CI) {                                                    \
+    /* Save the old poistion and move to the first option */                   \
+    int16_t old_y = tuiy();                                                    \
+    tuigoto(1, top);                                                           \
+                                                                               \
+    /* Redraw the current screen */                                            \
+    int16_t i = CI - (old_y - top);                                            \
+    int16_t end = i + cur_opts_num - 1;                                        \
+    do {                                                                       \
+        if (i == CI) tuigodown(1);                                             \
+        else REDRAW_LINE(i, "\n");                                             \
+    } while (++i < end);                                                       \
+    REDRAW_LINE(i,);                                                           \
+                                                                               \
+    /* Restore the old cursor position and redraw this line */                 \
+    tuigoto(1, old_y);                                                         \
+    REDRAW_CLINE(CI,);                                                         \
+}
 
     /* Print the options */
-    int16_t current_index = 0;
-    REDRAW_CLINE("\n");
-    ++current_index;
-    for (int16_t i = 1; i < cur_opts_num; ++i) {
-        REDRAW_LINE("\n");
-        ++current_index;
-    }
+    REDRAW_CLINE(0, "\n");
+    for (int16_t i = 1; i < cur_opts_num; ++i) REDRAW_LINE(i, "\n");
 
     /* Print the key bindings */
     tuiprintf(
@@ -178,11 +197,12 @@ static inline int32_t checklist_init(const char* const title) {
         T(BOLD, BRIGHT_BLACK)"X/Space "T(RESET, BRIGHT_BLACK)"toggle   "
         T(BOLD, BRIGHT_BLACK)"hjkl "T(RESET, BRIGHT_BLACK)"navigate   "
         T(BOLD, BRIGHT_BLACK)"Enter "T(RESET, BRIGHT_BLACK)"submit   "
-        T(BOLD, BRIGHT_BLACK)"Ctrl+A "T(RESET, BRIGHT_BLACK)"toggle all\n"
+        T(BOLD, BRIGHT_BLACK)"Ctrl+A "T(RESET, BRIGHT_BLACK)"mark all"
+        "\n"
         T(BOLD, BRIGHT_BLACK)"/       "T(RESET, BRIGHT_BLACK)"find     "
         T(BOLD, BRIGHT_BLACK)"N    "T(RESET, BRIGHT_BLACK)"next       "
         T(BOLD, BRIGHT_BLACK)"P     "T(RESET, BRIGHT_BLACK)"prev     "
-        T(BOLD, BRIGHT_BLACK)"F      "T(RESET, BRIGHT_BLACK)"filter"
+        T(BOLD, BRIGHT_BLACK)"Ctrl+I "T(RESET, BRIGHT_BLACK)"invert all"
     );
 
     /* Get the scrollable part */
@@ -195,67 +215,124 @@ static inline int32_t checklist_init(const char* const title) {
     /* Flush */
     tuiflush();
 
+/* Macro to clear the scene */
+#define CLEAR_SCENE() {                                                        \
+    tuiressc();                                                                \
+    tuigoto(1, top - 1);                                                       \
+    tuicldown();                                                               \
+}
+
+#define CHOOSE_DOWN() {                                                        \
+    /* Check for the current index */                                          \
+    if (current_index + 1 >= opts_num) continue;                               \
+                                                                               \
+    /* Do not point to the old option and go down */                           \
+    REDRAW_LINE(current_index,);                                               \
+                                                                               \
+    /* Increase the current index */                                           \
+    ++current_index;                                                           \
+                                                                               \
+    /* Align the cursor */                                                     \
+    if (tuiy() >= bottom) tuiscup(1);                                          \
+    else tuigodown(1);                                                         \
+}
+#define CHOOSE_UP() {                                                          \
+    /* Check for the current index */                                          \
+    if (current_index <= 0) continue;                                          \
+                                                                               \
+    /* Do not point to the old option and go up */                             \
+    REDRAW_LINE(current_index,);                                               \
+                                                                               \
+    /* Decrease the current index */                                           \
+    --current_index;                                                           \
+                                                                               \
+    /* Align the cursor */                                                     \
+    if (tuiy() <= top) tuiscdown(1);                                           \
+    else tuigoup(1);                                                           \
+}
+
     uint8_t input;
-    current_index = 0;
+    int16_t current_index = 0;
     for (;;) {
         /* Get the input */
         const char input = ttygetchar();
 
-/* Macro to clear the scene */
-#define CLEAR_SCENE() {                                                        \
-        tuiressc();                                                            \
-        tuigoto(1, top - 1);                                                   \
-        tuicldown();                                                           \
-}
+        /* Handle keys */
+        switch (input) {
+            /* Close keys */
+            case 3: case 26: case 27: case 'q': // <Ctrl+C> <Ctrl+Z> <Esc>
+                /* Clear the scene */
+                CLEAR_SCENE();
+                return -1;
+            case '\n':
+                /* Clear the scene */
+                CLEAR_SCENE();
+                return 0;
 
-        /* Check for <Escape> and 'q' */
-        if (input == 27 || input == 'q') {
-            /* Clear the scene */
-            CLEAR_SCENE();
-            return -1;
-        }
+            /* Navigation keys */
+            case 'j': CHOOSE_DOWN(); break;
+            case 'k': CHOOSE_UP(); break;
+            case 'd': {
+                const int16_t lines_to_scroll = cur_opts_num / 2;
+                for (int16_t i = 0; i < lines_to_scroll; ++i) CHOOSE_DOWN();
+                break;
+            }
+            case 'u': {
+                const int16_t lines_to_scroll = cur_opts_num / 2;
+                for (int16_t i = 0; i < lines_to_scroll; ++i) CHOOSE_UP();
+                break;
+            }
+            case 'f':
+                for (int16_t i = 0; i < cur_opts_num; ++i) CHOOSE_DOWN();
+                break;
+            case 'b':
+                for (int16_t i = 0; i < cur_opts_num; ++i) CHOOSE_UP();
+                break;
+            case 'G':
+                for (int16_t i = 0; i < opts_num; ++i) CHOOSE_DOWN();
+                break;
+            case 'g':
+                for (int16_t i = 0; i < opts_num; ++i) CHOOSE_UP();
+                break;
 
-        /* Check for Enter */
-        if (input == '\n') {
-            /* Clear the scene */
-            CLEAR_SCENE();
-            return 0;
-        };
+            /* Toggle keys */
+            case 'x': case ' ':
+                stats[current_index] ^= 1;
+                REDRAW_CLINE(current_index,);
+                break;
+            case '\t':
+                /* Toggle all the states */
+                for (int16_t i = 0; i < opts_num; ++i) stats[i] ^= 1;
 
-        /* Handle navigation keys */
-        if (input == 'j') {
-            /* Check for the current index */
-            if (current_index + 1 >= opts_num) continue;
+                /* Redraw the screen */
+                REDRAW_SCREEN(current_index);
+                break;
+            case 1: { // Ctrl + A
+                /* Get the new state
+                 * Default - toggle all true
+                 * If already all the options are true - false */
+                bool new_state = false;
+                for (int16_t i = 0; i < opts_num; ++i)
+                    if (stats[i] == false) new_state = true;
 
-            /* Do not point to the old option and go down */
-            REDRAW_LINE();
+                /* Set the new state for all the options */
+                for (int16_t i = 0; i < opts_num; ++i) stats[i] = new_state;
 
-            /* Increase the current index */
-            ++current_index;
+                /* Redraw the screen */
+                REDRAW_SCREEN(current_index);
+                break;
+            }
 
-            /* Align the cursor */
-            if (tuiy() >= bottom) tuiscup(1);
-            else tuieddown(1);
-        } else if (input == 'k') {
-            /* Check for the current index */
-            if (current_index <= 0) continue;
+            /* Search keys */
+            case '/':
 
-            /* Do not point to the old option and go up */
-            REDRAW_LINE();
-
-            /* Decrease the current index */
-            --current_index;
-
-            /* Align the cursor */
-            if (tuiy() <= top) tuiscdown(1);
-            else tuiedup(1);
+                break;
         }
 
         /* Redraw the current line */
-        REDRAW_CLINE();
+        REDRAW_CLINE(current_index,);
     }
 
-    seterr("Unknown error");
     return -1;
 }
 

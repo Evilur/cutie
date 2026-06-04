@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include <stdint.h>
 #include <string.h>
+#include <wchar.h>
 
 #include "scene/scene.h"
 #include "util/io.h"

@@ -141,9 +141,9 @@ static inline int32_t ttycanonoff(void) {
         return -1;
     }
 
-    /* Disable the canon mode and echo */
+    /* Disable the canon mode and echo and signal chars */
     struct termios new_term = _old_term;
-    new_term.c_lflag &= ~(ICANON | ECHO);
+    new_term.c_lflag &= ~(ICANON | ECHO | ISIG);
 
     /* Read char by char without any timeout */
     new_term.c_cc[VMIN] = 1;
