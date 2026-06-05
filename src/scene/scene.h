@@ -2,7 +2,7 @@
 #define CUTIE_SCENE_SCENE
 
 #include "checklist.h"
-#include "util/tui.h"
+#include "util/term.h"
 
 /* All available scene types */
 enum Scene {
@@ -10,15 +10,17 @@ enum Scene {
     UNDEFINED
 };
 
-/** Create the TUI scene and handle user's input
+/** Create the tui scene and handle user's input
  * @param type The scene type
  * @param title The title if the scene (can be null)
- * @returns 0 on success; -1 on error
+ * @returns scene result on success; -1 on error
  */
+static inline int32_t scene_init(enum Scene type, const char* title);
+
 static inline int32_t scene_init(const enum Scene type,
-                               const char* const title) {
+                                 const char* const title) {
     /* Create the tui */
-    if (tuiinit() == -1) return -1;
+    if (tinit() == -1) return -1;
 
     /* Create an handle the specific scene */
     int32_t result = -1;
@@ -33,7 +35,7 @@ static inline int32_t scene_init(const enum Scene type,
     }
 
     /* Close the tui */
-    tuifree();
+    tfree();
     return result;
 }
 

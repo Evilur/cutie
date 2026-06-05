@@ -4,13 +4,15 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "util/tui.h"
+#include "util/term.h"
 #include "type/bool.h"
 
 /** Create the checklist scene and handle it
  * @param title The title of the checklist
- * @returns 0 on success; -1 on error
+ * @returns 0 after printing the result; 1 on user cancelled;  -1 on error
  */
+static inline int32_t checklist_init(const char* title);
+
 static inline int32_t checklist_init(const char* const title) {
     /* Alloc the memory for option names */
     int32_t names_off = 0, names_size = 128;
@@ -146,44 +148,44 @@ static inline int32_t checklist_init(const char* const title) {
     if (opts_num == 0) return 0;
 
     /* Get the number of options for show on the screen */
-    const int16_t free_height = tuiheight() - 4;
+    const int16_t free_height = theight() - 4;
     const int16_t cur_opts_num = free_height < opts_num ?
                                  free_height : opts_num;
 
     /* Print the title */
-    if (title == NULL) tuiprintf(T(MAGENTA)"Choose:\n");
-    else tuiprintf(T(MAGENTA)"%s:\n", title);
+    if (title == NULL) tprintf(T(MAGENTA)"Choose:\n");
+    else tprintf(T(MAGENTA)"%s:\n", title);
 
 #define REDRAW_LINE(I, S) {                                                    \
     const char* const name = names_org[I];                                     \
     const char* const desk = descs_org[I];                                     \
-    tuiprintf("\r  %s %s - %.*s"S,                                             \
+    tprintf("\r  %s %s - %.*s"S,                                               \
               stats[I] ? T(RESET,BLUE)"✓" : T(RESET,WHITE)"•",                 \
-              name, tuiwidth() - strlen(name) - 12, desk);                     \
+              name, twidth() - strlen(name) - 12, desk);                       \
 }
 #define REDRAW_CLINE(I, S) {                                                   \
     const char* const name = names_org[I];                                     \
     const char* const desk = descs_org[I];                                     \
-    tuiprintf(T(BOLD, ITALIC, BLUE)"\r> %s %s - %.*s"S,                        \
+    tprintf(T(BOLD, ITALIC, BLUE)"\r> %s %s - %.*s"S,                          \
               stats[I] ? "✓" : "•",                                            \
-              name, tuiwidth() - strlen(name) - 12, desk);                     \
+              name, twidth() - strlen(name) - 12, desk);                       \
 }
 #define REDRAW_SCREEN(CI) {                                                    \
     /* Save the old poistion and move to the first option */                   \
-    int16_t old_y = tuiy();                                                    \
-    tuigoto(1, top);                                                           \
+    int16_t old_y = ty();                                                      \
+    tgoto(1, top);                                                             \
                                                                                \
     /* Redraw the current screen */                                            \
     int16_t i = CI - (old_y - top);                                            \
     int16_t end = i + cur_opts_num - 1;                                        \
     do {                                                                       \
-        if (i == CI) tuigodown(1);                                             \
+        if (i == CI) tgodown(1);                                               \
         else REDRAW_LINE(i, "\n");                                             \
     } while (++i < end);                                                       \
     REDRAW_LINE(i,);                                                           \
                                                                                \
     /* Restore the old cursor position and redraw this line */                 \
-    tuigoto(1, old_y);                                                         \
+    tgoto(1, old_y);                                                           \
     REDRAW_CLINE(CI,);                                                         \
 }
 
@@ -192,7 +194,7 @@ static inline int32_t checklist_init(const char* const title) {
     for (int16_t i = 1; i < cur_opts_num; ++i) REDRAW_LINE(i, "\n");
 
     /* Print the key bindings */
-    tuiprintf(
+    tprintf(
         "\n"
         T(BOLD, BRIGHT_BLACK)"X/Space "T(RESET, BRIGHT_BLACK)"toggle   "
         T(BOLD, BRIGHT_BLACK)"hjkl "T(RESET, BRIGHT_BLACK)"navigate   "
@@ -206,20 +208,20 @@ static inline int32_t checklist_init(const char* const title) {
     );
 
     /* Get the scrollable part */
-    const int16_t bottom = tuiy() - 3;
+    const int16_t bottom = ty() - 3;
     const int16_t top = bottom - cur_opts_num + 1;
 
     /* Make only this part scrollable */
-    tuisetsc(top, bottom);
+    tsetsc(top, bottom);
 
     /* Flush */
-    tuiflush();
+    tflush();
 
 /* Macro to clear the scene */
 #define CLEAR_SCENE() {                                                        \
-    tuiressc();                                                                \
-    tuigoto(1, top - 1);                                                       \
-    tuicldown();                                                               \
+    tressc();                                                                  \
+    tgoto(1, top - 1);                                                         \
+    tcldown();                                                                 \
 }
 
 #define CHOOSE_DOWN() {                                                        \
@@ -233,8 +235,8 @@ static inline int32_t checklist_init(const char* const title) {
     ++current_index;                                                           \
                                                                                \
     /* Align the cursor */                                                     \
-    if (tuiy() >= bottom) tuiscup(1);                                          \
-    else tuigodown(1);                                                         \
+    if (ty() >= bottom) tscup(1);                                              \
+    else tgodown(1);                                                           \
 }
 #define CHOOSE_UP() {                                                          \
     /* Check for the current index */                                          \
@@ -247,8 +249,8 @@ static inline int32_t checklist_init(const char* const title) {
     --current_index;                                                           \
                                                                                \
     /* Align the cursor */                                                     \
-    if (tuiy() <= top) tuiscdown(1);                                           \
-    else tuigoup(1);                                                           \
+    if (ty() <= top) tscdown(1);                                               \
+    else tgoup(1);                                                             \
 }
 
     uint8_t input;

@@ -19,6 +19,62 @@ char* _ebuf = NULL;
 /** Save the error to the error buffer to print it later
  * @param format The format string for the printf
  */
+static inline void seterr(const char* format, ...);
+
+/* Print the error from the buffer
+ */
+static inline void printerr(void);
+
+/** Init the tty device
+ * @returns 0 on success; 1 on error
+ */
+static inline int32_t ttyinit(void);
+
+/** Free the tty device file desciptor
+ */
+static inline void ttyfree(void);
+
+/** Print the data to the raw tty device using printf
+ * @param format The format string for the printf
+ */
+static inline void ttyprintf(const char* format, ...);
+
+/** Print the data to the raw tty device
+ * @param string The seting to print
+ */
+static inline void ttyputs(const char* string);
+
+/** Read one char from the tty
+ * @return The char from the /dev/tty
+ */
+static inline char ttygetchar();
+
+/** Flush the tty buffer
+ */
+static inline void ttyflush(void);
+
+/** Get the current position of the curesor
+ * @param x The pointer to store the x axis
+ * @param y The pointer to store the y axis
+ * @returns 0 on success; -1 on error
+ */
+static inline int32_t ttygetpos(int16_t* x, int16_t* y);
+
+/** Get the terminal size
+ * @param width The pointer to the width
+ * @param height The pointer to the height
+ */
+static inline int32_t ttygetsize(int16_t* width, int16_t* height);
+
+/** Disable the canonical tty mode
+ * @returns 0 on success; -1 on error
+ */
+static inline int32_t ttycanonoff(void);
+
+/** Restore the terminal setting
+ */
+static inline void ttyreset(void);
+
 static inline void seterr(const char* const format, ...) {
     /* Get the message len */
     va_list args;
@@ -36,8 +92,6 @@ static inline void seterr(const char* const format, ...) {
     va_end(args);
 }
 
-/* Print the error from the buffer
- */
 static inline void printerr(void) {
     if (_ebuf == NULL) seterr("Unknown error");
 
@@ -45,9 +99,6 @@ static inline void printerr(void) {
     fprintf(stderr, T(BOLD, RED)"Error: %s\n", _ebuf);
 }
 
-/** Init the tty device
- * @returns 0 on success; 1 on error
- */
 static inline int32_t ttyinit(void) {
     _tty = fopen("/dev/tty", "r+");
     if (_tty == NULL) {
@@ -57,15 +108,10 @@ static inline int32_t ttyinit(void) {
     else return 0;
 }
 
-/** Free the tty device file desciptor
- */
 static inline void ttyfree(void) {
     if (_tty != NULL) fclose(_tty);
 }
 
-/** Print the data to the raw tty device using printf
- * @param format The format string for the printf
- */
 static inline void ttyprintf(const char* const format, ...) {
     va_list args;
     va_start(args, format);
@@ -73,32 +119,19 @@ static inline void ttyprintf(const char* const format, ...) {
     va_end(args);
 }
 
-/** Print the data to the raw tty device
- * @param string The seting to print
- */
 static inline void ttyputs(const char* const string) {
     fputs(string, _tty);
 }
 
-/** Read one char from the tty
- * @return The char from the /dev/tty
- */
 static inline char ttygetchar() {
     return fgetc(_tty);
 }
 
-/** Flush the tty buffer
- */
 static inline void ttyflush(void) {
     fflush(_tty);
     fflush(stdout);
 }
 
-/** Get the current position of the curesor
- * @param x The pointer to store the x axis
- * @param y The pointer to store the y axis
- * @returns 0 on success; -1 on error
- */
 static inline int32_t ttygetpos(int16_t* const x, int16_t* const y) {
     /* Send the ascii seq to get the pos */
     fprintf(_tty, "\033[6n");
@@ -111,10 +144,6 @@ static inline int32_t ttygetpos(int16_t* const x, int16_t* const y) {
     } else return 0;
 }
 
-/** Get the terminal size
- * @param width The pointer to the width
- * @param height The pointer to the height
- */
 static inline int32_t ttygetsize(int16_t* const width, int16_t* const height) {
     /* Get the terminal size */
     struct winsize ws;
@@ -131,9 +160,6 @@ static inline int32_t ttygetsize(int16_t* const width, int16_t* const height) {
     return 0;
 }
 
-/** Disable the canonical tty mode
- * @returns 0 on success; -1 on error
- */
 static inline int32_t ttycanonoff(void) {
     /* Save the current terminal settings */
     if (tcgetattr(fileno(_tty), &_old_term) == -1) {
@@ -163,8 +189,6 @@ static inline int32_t ttycanonoff(void) {
     return 0;
 }
 
-/** Restore the terminal setting
- */
 static inline void ttyreset(void) {
     tcsetattr(fileno(_tty), TCSANOW, &_old_term);
 }
